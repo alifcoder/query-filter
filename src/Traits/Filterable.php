@@ -11,7 +11,7 @@ use Alif\QueryFilter\Interfaces\EBFilterInterface;
 use Illuminate\Database\Eloquent\Builder;
 
 
-class Filterable
+trait Filterable
 {
     /**
      * @param Builder $builder

@@ -18,7 +18,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-abstract class BaseEBEBFilter implements EBFilterInterface
+abstract class BaseEBFilter implements EBFilterInterface
 {
     public const string PREFIX       = 'prefix';
     public const string INDEX        = 'index';
