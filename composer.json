@@ -1,0 +1,32 @@
+{
+    "name": "alifcoder/query-filter",
+    "description": "A clean query filter builder for Laravel",
+    "type": "library",
+    "require": {
+        "illuminate/support": "^11.0 || ^12.0",
+        "php": ">=8.2"
+    },
+    "require-dev": {
+        "laravel/framework": "^v12"
+    },
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Alif\\QueryFilter\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Alif\\QueryFilter\\QueryFilterServiceProvider"
+            ]
+        }
+    },
+    "authors": [
+        {
+            "name": "Shukhratjon Yuldashev",
+            "email": "uzalifcoder@gamil.com"
+        }
+    ],
+    "minimum-stability": "stable"
+}
