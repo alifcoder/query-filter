@@ -315,10 +315,10 @@ abstract class BaseEBFilter implements EBFilterInterface
                 'action'          => $this->table . '.action',
                 'is_active'       => $this->table . '.is_active',
                 'created_by.name' => function (Builder $builder) use ($search) {
-                    $builder->whereILike('created_by.name', $search);
+                    $builder->whereILike(\DB::raw("concat_ws(' ', created_by.first_name, created_by.last_name)"), $search);
                 },
                 'updated_by.name' => function (Builder $builder) use ($search) {
-                    $builder->whereILike('updated_by.name', $search);
+                    $builder->whereILike(\DB::raw("concat_ws(' ', updated_by.first_name, updated_by.last_name)"), $search);
                 },
                 'created_at'      => $this->table . '.created_at',
                 'updated_at'      => $this->table . '.updated_at',
@@ -375,10 +375,10 @@ abstract class BaseEBFilter implements EBFilterInterface
                 'active'          => $this->table . '.active',
                 'is_active'       => $this->table . '.is_active',
                 'created_by.name' => function (Builder $builder, string $direction) {
-                    $builder->orderBy('created_by.name', $direction);
+                    $builder->orderByRaw("concat_ws(' ', created_by.first_name, created_by.last_name) " . $direction);
                 },
                 'updated_by.name' => function (Builder $builder, string $direction) {
-                    $builder->orderBy('updated_by.name', $direction);
+                    $builder->orderByRaw("concat_ws(' ', updated_by.first_name, updated_by.last_name) " . $direction);
                 },
                 'created_at'      => $this->table . '.created_at',
                 'updated_at'      => $this->table . '.updated_at',
