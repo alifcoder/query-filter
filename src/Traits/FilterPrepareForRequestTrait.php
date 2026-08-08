@@ -76,14 +76,24 @@ trait FilterPrepareForRequestTrait
 
     public function getFields(): array
     {
-        return array_merge($this->fields(), [
-                new ValidationRuleDTO('prefix', ['string'], [OperationEnum::Equal, OperationEnum::NotEqual]),
-                new ValidationRuleDTO('index', ['string'], OperationEnum::cases()),
-                new ValidationRuleDTO('deleted_at', ['date'], OperationEnum::cases()),
-                new ValidationRuleDTO('created_at', ['date'], OperationEnum::cases()),
-                new ValidationRuleDTO('updated_at', ['date'], OperationEnum::cases()),
-                new ValidationRuleDTO('created_by', ['uuid'], [OperationEnum::Equal, OperationEnum::NotEqual]),
-                new ValidationRuleDTO('updated_by', ['uuid'], [OperationEnum::Equal, OperationEnum::NotEqual]),
-        ]);
+        return array_merge($this->fields(), $this->defaultValidationFields());
+    }
+
+    private function defaultValidationFields(): array
+    {
+        $fields = [];
+
+        foreach (config('query-filter.default_validation_fields', []) as $definition) {
+            $operations = $definition['operations'] ?? 'all';
+            $operations = $operations === 'all'
+                    ? OperationEnum::cases()
+                    : array_map(fn (string|OperationEnum $operation) => $operation instanceof OperationEnum
+                            ? $operation
+                            : OperationEnum::from($operation), $operations);
+
+            $fields[] = new ValidationRuleDTO($definition['field'], $definition['rules'], $operations);
+        }
+
+        return $fields;
     }
 }

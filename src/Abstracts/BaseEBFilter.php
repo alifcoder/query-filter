@@ -20,20 +20,6 @@ use Illuminate\Support\Str;
 
 abstract class BaseEBFilter implements EBFilterInterface
 {
-    public const string PREFIX       = 'prefix';
-    public const string INDEX        = 'index';
-    public const string IS_ACTIVE    = 'is_active';
-    public const string DELETED_AT   = 'deleted_at';
-    public const string CREATED_AT   = 'created_at';
-    public const string UPDATED_AT   = 'updated_at';
-    public const string CREATED_BY   = 'created_by';
-    public const string UPDATED_BY   = 'updated_by';
-    public const string SORT         = 'sort';
-    public const string LIMIT        = 'limit';
-    public const string ONLY_DELETED = 'only_deleted';
-    public const string WITH_DELETED = 'with_deleted';
-
-
     protected string $table;
     /**
      * @var array
@@ -54,7 +40,7 @@ abstract class BaseEBFilter implements EBFilterInterface
     {
         $this->before($builder);
 
-        foreach ($this->getCallback() as $name => $callback) {
+        foreach ($this->getCallback() + $this->getCallbackDefault() as $name => $callback) {
             if (isset($this->queryParams[$name])) {
                 call_user_func($callback, $builder, $this->queryParams[$name], true);
             }
@@ -110,106 +96,57 @@ abstract class BaseEBFilter implements EBFilterInterface
         return $this->queryParams[$key] ?? $default;
     }
 
-    public function prefixIndex(Builder $builder, array $value): void
+    /**
+     * Filter callbacks automatically merged into getCallback(), driven by
+     * config('query-filter.default_field_filters'). A key returned by the
+     * filter's own getCallback() always takes precedence over the same key
+     * here.
+     */
+    private function getCallbackDefault(): array
     {
-        $builder->whereRaw("concat(prefix, '-', index) where ilike '%?%'", [$value]);
+        $callbacks = [];
+
+        foreach (config('query-filter.default_field_filters', []) as $key => $definition) {
+            $callbacks[$key] = function (Builder $builder, mixed $value, bool $match_all) use ($definition, $key) {
+                $this->applyFieldFilter($builder, $definition, $key, $value, $match_all);
+            };
+        }
+
+        return $callbacks;
     }
 
-    public function withDeleted(Builder $builder, bool $value = false): void
+    private function applyFieldFilter(Builder $builder, array $definition, string $key, mixed $value, bool $match_all): void
     {
-        $builder->withDeleted($value);
+        match ($definition['type']) {
+            'operation' => $this->applyOperationFilter(
+                    $builder,
+                    $this->table . '.' . $this->columnName($definition['column'] ?? $key),
+                    (array)$value,
+                    $match_all),
+            'boolean'   => $builder->where($this->table . '.' . $this->columnName($definition['column'] ?? $key), (bool)$value),
+            'toggle'    => $builder->{$definition['scope']}((bool)$value),
+            'limit'     => $builder->limit((int)$value),
+        };
     }
 
-    public function onlyDeleted(Builder $builder, bool $value): void
+    private function applyOperationFilter(Builder $builder, string $column, array $value, bool $match_all): void
     {
-        $builder->onlyDeleted($value);
-    }
-
-    public function limit(Builder $builder, int $value): void
-    {
-        $builder->limit($value);
-    }
-
-    public function isActive(Builder $builder, bool $value): void
-    {
-        $builder->where($this->table . '.is_active', $value);
-    }
-
-    public function prefix(Builder $builder, array $value, bool $match_all): void
-    {
-        $builder->where(function (Builder $query) use ($value, $match_all) {
+        $builder->where(function (Builder $query) use ($value, $match_all, $column) {
             foreach ($value as $key => $item) {
                 $item      = empty($item) ? null : Arr::wrap($item);
                 $operation = OperationEnum::tryFrom($key);
-                $operation?->sql($query, $this->table . '.prefix', $item, $match_all);
+                $operation?->sql($query, $column, $item, $match_all);
             }
         });
     }
 
-    public function index(Builder $builder, array $value, bool $match_all): void
+    /**
+     * Resolve the configured database column name for a logical filter key.
+     * Falls back to the key itself when no override is configured.
+     */
+    protected function columnName(string $key): string
     {
-        $builder->where(function (Builder $query) use ($value, $match_all) {
-            foreach ($value as $key => $item) {
-                $item      = empty($item) ? null : Arr::wrap($item);
-                $operation = OperationEnum::tryFrom($key);
-                $operation?->sql($query, $this->table . '.index', $item, $match_all);
-            }
-        });
-    }
-
-    public function deletedAt(Builder $builder, array $value, bool $match_all): void
-    {
-        $builder->where(function (Builder $query) use ($value, $match_all) {
-            foreach ($value as $key => $item) {
-                $item      = empty($item) ? null : Arr::wrap($item);
-                $operation = OperationEnum::tryFrom($key);
-                $operation?->sql($query, $this->table . '.deleted_at', $item, $match_all);
-            }
-        });
-    }
-
-    public function createdAt(Builder $builder, array $value, bool $match_all): void
-    {
-        $builder->where(function (Builder $query) use ($value, $match_all) {
-            foreach ($value as $key => $item) {
-                $item      = empty($item) ? null : Arr::wrap($item);
-                $operation = OperationEnum::tryFrom($key);
-                $operation?->sql($query, $this->table . '.created_at', $item, $match_all);
-            }
-        });
-    }
-
-    public function updatedAt(Builder $builder, array $value, bool $match_all): void
-    {
-        $builder->where(function (Builder $query) use ($value, $match_all) {
-            foreach ($value as $key => $item) {
-                $item      = empty($item) ? null : Arr::wrap($item);
-                $operation = OperationEnum::tryFrom($key);
-                $operation?->sql($query, $this->table . '.updated_at', $item, $match_all);
-            }
-        });
-    }
-
-    public function createdBy(Builder $builder, array $value, bool $match_all): void
-    {
-        $builder->where(function (Builder $query) use ($value, $match_all) {
-            foreach ($value as $key => $item) {
-                $item      = empty($item) ? null : Arr::wrap($item);
-                $operation = OperationEnum::tryFrom($key);
-                $operation?->sql($query, $this->table . '.created_by', $item, $match_all);
-            }
-        });
-    }
-
-    public function updatedBy(Builder $builder, array $value, bool $match_all): void
-    {
-        $builder->where(function (Builder $query) use ($value, $match_all) {
-            foreach ($value as $key => $item) {
-                $item      = empty($item) ? null : Arr::wrap($item);
-                $operation = OperationEnum::tryFrom($key);
-                $operation?->sql($query, $this->table . '.updated_by', $item, $match_all);
-            }
-        });
+        return config("query-filter.columns.$key", $key);
     }
 
     public function search(Builder $builder, array $value): void
@@ -307,24 +244,13 @@ abstract class BaseEBFilter implements EBFilterInterface
 
     private function searchFieldsDefault(string $search): array
     {
-        return [
-                'prefix-index'    => DB::raw("concat(" . $this->table . ".prefix, '-', " . $this->table . ".index)"),
-                'prefix'          => $this->table . '.prefix',
-                'index'           => DB::raw("concat(" . $this->table . ".prefix, '-', " . $this->table . ".index)"),
-                'active'          => $this->table . '.active',
-                'action'          => $this->table . '.action',
-                'is_active'       => $this->table . '.is_active',
-                'created_by.name' => function (Builder $builder) use ($search) {
-                    $builder->whereILike(\DB::raw("concat_ws(' ', created_by.first_name, created_by.last_name)"), $search);
-                },
-                'updated_by.name' => function (Builder $builder) use ($search) {
-                    $builder->whereILike(\DB::raw("concat_ws(' ', updated_by.first_name, updated_by.last_name)"), $search);
-                },
-                'created_at'      => $this->table . '.created_at',
-                'updated_at'      => $this->table . '.updated_at',
-                'deleted_at'      => $this->table . '.deleted_at',
-                'document_date'   => $this->table . '.document_date',
-        ];
+        $fields = [];
+
+        foreach (config('query-filter.default_search_fields', []) as $key) {
+            $fields[$key] = $this->resolveDefaultField($key, $search);
+        }
+
+        return array_filter($fields, fn (mixed $field) => $field !== null);
     }
 
     public function sort(Builder $builder, string $value): void
@@ -368,37 +294,75 @@ abstract class BaseEBFilter implements EBFilterInterface
 
     private function sortFieldsDefault(): array
     {
-        return [
-                'prefix-index'    => DB::raw("concat(" . $this->table . ".prefix, '-', " . $this->table . ".index)"),
-                'index'           => DB::raw("concat(" . $this->table . ".prefix, '-', " . $this->table . ".index)"),
-                'prefix'          => $this->table . '.prefix',
-                'active'          => $this->table . '.active',
-                'is_active'       => $this->table . '.is_active',
-                'created_by.name' => function (Builder $builder, string $direction) {
-                    $builder->orderByRaw("concat_ws(' ', created_by.first_name, created_by.last_name) " . $direction);
-                },
-                'updated_by.name' => function (Builder $builder, string $direction) {
-                    $builder->orderByRaw("concat_ws(' ', updated_by.first_name, updated_by.last_name) " . $direction);
-                },
-                'created_at'      => $this->table . '.created_at',
-                'updated_at'      => $this->table . '.updated_at',
-                'deleted_at'      => $this->table . '.deleted_at',
-                'document_date'   => $this->table . '.document_date',
-        ];
+        $fields = [];
+
+        foreach (config('query-filter.default_sort_fields', []) as $key) {
+            $fields[$key] = $this->resolveDefaultField($key);
+        }
+
+        return array_filter($fields, fn (mixed $field) => $field !== null);
+    }
+
+    /**
+     * Resolve a default search/sort field descriptor for the given key.
+     * Pass $search to build a search-context field (whereILike closure);
+     * omit it to build a sort-context field (orderByRaw closure).
+     */
+    private function resolveDefaultField(string $key, ?string $search = null): mixed
+    {
+        if ($key === 'prefix-index' || $key === 'index') {
+            return $this->concatColumns($this->columnName('prefix'), $this->columnName('index'));
+        }
+
+        if (Str::endsWith($key, '.name')) {
+            return $this->relationNameField(Str::beforeLast($key, '.name'), $search);
+        }
+
+        return $this->table . '.' . $this->columnName($key);
+    }
+
+    private function concatColumns(string ...$columns): \Illuminate\Database\Query\Expression
+    {
+        $qualified = array_map(fn (string $column) => $this->table . '.' . $column, $columns);
+
+        return DB::raw("concat(" . implode(", '-', ", $qualified) . ")");
+    }
+
+    private function relationNameField(string $relation, ?string $search): ?Closure
+    {
+        $join = config("query-filter.default_joins.$relation");
+        if ($join === null) {
+            return null;
+        }
+
+        $alias   = $join['alias'] ?? $relation;
+        $columns = $join['name_columns'] ?? ['first_name', 'last_name'];
+        $raw     = "concat_ws(' ', " . implode(', ', array_map(fn (string $c) => "$alias.$c", $columns)) . ")";
+
+        if ($search === null) {
+            return function (Builder $builder, string $direction) use ($raw) {
+                $builder->orderByRaw($raw . ' ' . $direction);
+            };
+        }
+
+        return function (Builder $builder) use ($raw, $search) {
+            $builder->whereILike(DB::raw($raw), $search);
+        };
     }
 
     private function joinTablesDefault(): array
     {
-        return [
-                'created_by' => new JoinInfoDTO(
-                        table:  'users as updated_by',
-                        first:  'created_by.id',
-                        second: $this->table . '.created_by'),
-                'updated_by' => new JoinInfoDTO(
-                        table:  'users as updated_by',
-                        first:  'updated_by.id',
-                        second: $this->table . '.updated_by'),
-        ];
+        $joins = [];
+
+        foreach (config('query-filter.default_joins', []) as $relation => $join) {
+            $joins[$relation] = new JoinInfoDTO(
+                    table:  $join['table'],
+                    first:  $join['first'],
+                    second: str_replace('{table}', $this->table, $join['second']),
+            );
+        }
+
+        return $joins;
     }
 
     /**

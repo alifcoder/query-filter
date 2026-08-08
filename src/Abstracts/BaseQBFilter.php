@@ -17,11 +17,6 @@ use Illuminate\Support\Str;
 
 abstract class BaseQBFilter implements QBFilterInterface
 {
-    public const string SORT     = 'sort';
-    public const string LIMIT    = 'limit';
-    public const string PAGINATE = 'paginate';
-
-
     protected string $table;
 
     private array $queryParams;
@@ -35,7 +30,7 @@ abstract class BaseQBFilter implements QBFilterInterface
     {
         $this->before($builder);
 
-        foreach ($this->getCallback() as $name => $callback) {
+        foreach ($this->getCallback() + $this->getCallbackDefault() as $name => $callback) {
             if (isset($this->queryParams[$name])) {
                 call_user_func($callback, $builder, $this->queryParams[$name], true);
             }
@@ -69,18 +64,40 @@ abstract class BaseQBFilter implements QBFilterInterface
         return $this->queryParams[$key] ?? $default;
     }
 
-    public function paginate(Builder $builder, bool $value): void
+    /**
+     * Filter callbacks automatically merged into getCallback(), driven by
+     * config('query-filter.default_qb_filters'). A key returned by the
+     * filter's own getCallback() always takes precedence over the same key
+     * here.
+     */
+    private function getCallbackDefault(): array
+    {
+        $callbacks = [];
+
+        foreach (config('query-filter.default_qb_filters', []) as $key => $definition) {
+            $callbacks[$key] = function (Builder $builder, mixed $value) use ($definition) {
+                $this->applyFieldFilter($builder, $definition, $value);
+            };
+        }
+
+        return $callbacks;
+    }
+
+    private function applyFieldFilter(Builder $builder, array $definition, mixed $value): void
+    {
+        match ($definition['type']) {
+            'limit'    => $builder->limit((int)$value),
+            'paginate' => $this->applyPaginate($builder, (bool)$value),
+        };
+    }
+
+    private function applyPaginate(Builder $builder, bool $value): void
     {
         if ($value) {
             $per_page = $this->getQueryParams('per_page', config('app.per_page'));
             $page     = $this->getQueryParams('page', config('app.page'));
             $builder->limit($per_page)->offset(($page - 1) * $per_page);
         }
-    }
-
-    public function limit(Builder $builder, int $value): void
-    {
-        $builder->limit($value);
     }
 
     public function search(Builder $builder, array $value): void
