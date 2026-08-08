@@ -62,14 +62,14 @@ return [
     // fields below. Override a value if your table uses a different column
     // name — no need to override the base class.
     'columns' => [
-        'prefix'     => 'prefix',
-        'index'      => 'index',
-        'is_active'  => 'is_active',
-        'deleted_at' => 'deleted_at',
-        'created_at' => 'created_at',
-        'updated_at' => 'updated_at',
-        'created_by' => 'created_by',
-        'updated_by' => 'updated_by',
+        'prefix'        => 'prefix',
+        'index'         => 'index',
+        'is_active'     => 'is_active',
+        'deleted_at'    => 'deleted_at',
+        'created_at'    => 'created_at',
+        'updated_at'    => 'updated_at',
+        'created_by_id' => 'created_by_id',
+        'updated_by_id' => 'updated_by_id',
         // ...
     ],
 
@@ -84,7 +84,7 @@ return [
         'created_by' => [
             'table'        => 'users as created_by',
             'first'        => 'created_by.id',
-            'second'       => '{table}.created_by',
+            'second'       => '{table}.created_by_id',
             'alias'        => 'created_by',
             'name_columns' => ['first_name', 'last_name'],
         ],
@@ -126,12 +126,12 @@ class PostFilter extends BaseEBFilter implements Searchable
     protected function getCallback(): array
     {
         return [
-            'is_active'  => [$this, 'isActive'],
-            'created_at' => [$this, 'createdAt'],
-            'created_by' => [$this, 'createdBy'],
-            'search'     => [$this, 'search'],
-            'sort'       => [$this, 'sort'],
-            'limit'      => [$this, 'limit'],
+            'is_active'     => [$this, 'isActive'],
+            'created_at'    => [$this, 'createdAt'],
+            'created_by_id' => [$this, 'createdBy'],
+            'search'        => [$this, 'search'],
+            'sort'          => [$this, 'sort'],
+            'limit'         => [$this, 'limit'],
         ];
     }
 
