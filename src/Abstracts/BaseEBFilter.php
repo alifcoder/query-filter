@@ -337,7 +337,7 @@ abstract class BaseEBFilter implements EBFilterInterface
         }
 
         $alias   = $join['alias'] ?? $relation;
-        $columns = $join['name_columns'];
+        $columns = $join['name_columns'] ?? null;
         if (empty($columns)) {
             return $this->table . '.' . $alias;
         }
