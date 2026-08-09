@@ -14,6 +14,7 @@ use Alif\QueryFilter\Interfaces\EBFilterInterface;
 use Alif\QueryFilter\Interfaces\Searchable;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Expression;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -314,21 +315,21 @@ abstract class BaseEBFilter implements EBFilterInterface
             return $this->concatColumns($this->columnName('prefix'), $this->columnName('index'));
         }
 
-        if (Str::endsWith($key, '.name')) {
-            return $this->relationNameField(Str::beforeLast($key, '.name'), $search);
+        if (Str::contains($key, '.')) {
+            return $this->relationNameField(Str::beforeLast($key, '.'), $search);
         }
 
         return $this->table . '.' . $this->columnName($key);
     }
 
-    private function concatColumns(string ...$columns): \Illuminate\Database\Query\Expression
+    private function concatColumns(string ...$columns): Expression
     {
         $qualified = array_map(fn (string $column) => $this->table . '.' . $column, $columns);
 
         return DB::raw("concat(" . implode(", '-', ", $qualified) . ")");
     }
 
-    private function relationNameField(string $relation, ?string $search): ?Closure
+    private function relationNameField(string $relation, ?string $search): mixed
     {
         $join = config("query-filter.default_joins.$relation");
         if ($join === null) {
@@ -336,7 +337,10 @@ abstract class BaseEBFilter implements EBFilterInterface
         }
 
         $alias   = $join['alias'] ?? $relation;
-        $columns = $join['name_columns'] ?? ['first_name', 'last_name'];
+        $columns = $join['name_columns'];
+        if (empty($columns)) {
+            return $this->table . '.' . $alias;
+        }
         $raw     = "concat_ws(' ', " . implode(', ', array_map(fn (string $c) => "$alias.$c", $columns)) . ")";
 
         if ($search === null) {
