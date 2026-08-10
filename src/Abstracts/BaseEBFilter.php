@@ -22,7 +22,7 @@ use Illuminate\Support\Str;
 abstract class BaseEBFilter implements EBFilterInterface
 {
     protected string $table;
-    protected const string SORT = 'sort';
+    public const string SORT = 'sort';
     /**
      * @var array
      */
