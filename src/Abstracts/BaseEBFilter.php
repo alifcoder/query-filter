@@ -22,6 +22,7 @@ use Illuminate\Support\Str;
 abstract class BaseEBFilter implements EBFilterInterface
 {
     protected string $table;
+    protected const string SORT = 'sort';
     /**
      * @var array
      */
@@ -116,17 +117,22 @@ abstract class BaseEBFilter implements EBFilterInterface
         return $callbacks;
     }
 
-    private function applyFieldFilter(Builder $builder, array $definition, string $key, mixed $value, bool $match_all): void
-    {
+    private function applyFieldFilter(
+            Builder $builder,
+            array $definition,
+            string $key,
+            mixed $value,
+            bool $match_all
+    ): void {
         match ($definition['type']) {
             'operation' => $this->applyOperationFilter(
                     $builder,
                     $this->table . '.' . $this->columnName($definition['column'] ?? $key),
                     (array)$value,
                     $match_all),
-            'boolean'   => $builder->where($this->table . '.' . $this->columnName($definition['column'] ?? $key), (bool)$value),
-            'toggle'    => $builder->{$definition['scope']}((bool)$value),
-            'limit'     => $builder->limit((int)$value),
+            'boolean' => $builder->where($this->table . '.' . $this->columnName($definition['column'] ?? $key), (bool)$value),
+            'toggle' => $builder->{$definition['scope']}((bool)$value),
+            'limit' => $builder->limit((int)$value),
         };
     }
 
@@ -251,7 +257,7 @@ abstract class BaseEBFilter implements EBFilterInterface
             $fields[$key] = $this->resolveDefaultField($key, $search);
         }
 
-        return array_filter($fields, fn (mixed $field) => $field !== null);
+        return array_filter($fields, fn(mixed $field) => $field !== null);
     }
 
     public function sort(Builder $builder, string $value): void
@@ -301,7 +307,7 @@ abstract class BaseEBFilter implements EBFilterInterface
             $fields[$key] = $this->resolveDefaultField($key);
         }
 
-        return array_filter($fields, fn (mixed $field) => $field !== null);
+        return array_filter($fields, fn(mixed $field) => $field !== null);
     }
 
     /**
@@ -316,7 +322,7 @@ abstract class BaseEBFilter implements EBFilterInterface
         }
 
         if (Str::contains($key, '.')) {
-            return $this->relationNameField(Str::beforeLast($key, '.'), $search);
+            return $this->relationNameField($key, $search);
         }
 
         return $this->table . '.' . $this->columnName($key);
@@ -324,13 +330,16 @@ abstract class BaseEBFilter implements EBFilterInterface
 
     private function concatColumns(string ...$columns): Expression
     {
-        $qualified = array_map(fn (string $column) => $this->table . '.' . $column, $columns);
+        $qualified = array_map(fn(string $column) => $this->table . '.' . $column, $columns);
 
         return DB::raw("concat(" . implode(", '-', ", $qualified) . ")");
     }
 
-    private function relationNameField(string $relation, ?string $search): mixed
+    private function relationNameField(string $key, ?string $search): mixed
     {
+        $relation = Str::beforeLast($key, '.');
+        $column   = Str::afterLast($key, '.');
+
         $join = config("query-filter.default_joins.$relation");
         if ($join === null) {
             return null;
@@ -339,9 +348,9 @@ abstract class BaseEBFilter implements EBFilterInterface
         $alias   = $join['alias'] ?? $relation;
         $columns = $join['name_columns'] ?? null;
         if (empty($columns)) {
-            return $this->table . '.' . $alias;
+            return $alias . '.' . $column;
         }
-        $raw     = "concat_ws(' ', " . implode(', ', array_map(fn (string $c) => "$alias.$c", $columns)) . ")";
+        $raw = "concat_ws(' ', " . implode(', ', array_map(fn(string $c) => "$alias.$c", $columns)) . ")";
 
         if ($search === null) {
             return function (Builder $builder, string $direction) use ($raw) {
