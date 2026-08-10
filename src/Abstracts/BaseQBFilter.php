@@ -18,6 +18,7 @@ use Illuminate\Support\Str;
 abstract class BaseQBFilter implements QBFilterInterface
 {
     protected string $table;
+    public const string SORT = 'sort';
 
     private array $queryParams;
 
