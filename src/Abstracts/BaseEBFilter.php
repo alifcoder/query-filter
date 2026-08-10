@@ -245,7 +245,7 @@ abstract class BaseEBFilter implements EBFilterInterface
         $searchFields = $this->searchFields($search) + $this->searchFieldsDefault($search);
 
         return $searchFields[$key] ?? throw new \Exception(
-                message: __('query.field_does_not_exists', ['field' => $key]),
+                message: __('query-filter::query.field_does_not_exists', ['field' => $key]),
                 code:    400);
     }
 
@@ -286,7 +286,7 @@ abstract class BaseEBFilter implements EBFilterInterface
         $searchFields = $this->sortFields() + $this->sortFieldsDefault();
 
         return $searchFields[$column] ?? throw new \Exception(
-                message: __('query.field_does_not_exists', ['field' => $column]),
+                message: __('query-filter::query.field_does_not_exists', ['field' => $column]),
                 code:    400);
     }
 

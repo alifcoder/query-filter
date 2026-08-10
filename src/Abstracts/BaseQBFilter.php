@@ -189,7 +189,7 @@ abstract class BaseQBFilter implements QBFilterInterface
     {
         $searchFields = $this->searchFields($search);
 
-        return $searchFields[$key] ?? throw new \Exception(__('messages.field_does_not_exists', ['field' => $key]), 400);
+        return $searchFields[$key] ?? throw new \Exception(__('query-filter::query.field_does_not_exists', ['field' => $key]), 400);
     }
 
     public function sort(Builder $builder, string $value): void
@@ -217,7 +217,7 @@ abstract class BaseQBFilter implements QBFilterInterface
     {
         $searchFields = $this->sortFields();
 
-        return $searchFields[$column] ?? throw new \Exception(__('messages.field_does_not_exists', ['field' => $column]), 400);
+        return $searchFields[$column] ?? throw new \Exception(__('query-filter::query.field_does_not_exists', ['field' => $column]), 400);
     }
 
     private function getJoinTables(): array
