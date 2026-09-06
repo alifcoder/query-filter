@@ -198,7 +198,7 @@ abstract class BaseEBFilter implements EBFilterInterface
         }
 
         // get join info
-        $relation = explode('.', $key)[0];
+        $relation = Str::beforeLast($key, '.');
         /** @var JoinInfoDTO $info_dto */
         $info_dto = $this->getJoinTables()[$relation] ?? null;
 
