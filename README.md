@@ -1,234 +1,275 @@
-# 🔍 Alif Query Filter
+# Alif Query Filter
 
-A lightweight, clean, and reusable query filtering library for Laravel Eloquent models — built to help you keep your controllers clean and your queries dynamic.
+Explicit, validated filtering for Laravel Eloquent and Query Builder. Keep
+controllers small and use the normal builder for pagination and retrieval.
 
----
+Inspired by [Kettasoft Filterable](https://github.com/kettasoft/filterable), with
+one parser and query compiler, bounded input, and no automatic result caching.
+See the [architecture and reference review](docs/architecture.md).
 
-## ✨ Features
+**v2.0.0 is a major release.** Applications using v1.x must follow the
+[upgrade guide](UPGRADING.md) before adopting this API.
 
-- Chainable, dynamic Eloquent filtering based on request input
-- Filters as separate classes — fully testable and reusable
-- Built-in `eq`/`ne`/`gt`/`gte`/`lt`/`lte` operations, search, sort, joins and soft-delete handling
-- Auto-generated validation rules for your filter `FormRequest`s
-- No hardcoded column names — every default column, search/sort field, join and
-  validation rule is driven by the publishable config
-- Works out-of-the-box with Laravel
+## Install
 
----
-
-## 📦 Requirements
-
-- PHP >= 8.2
-- Laravel ^11.0 || ^12.0 || ^13.0
-
----
-
-## 🚀 Installation
+Requires **PHP 8.3 or higher** and **Laravel 11 or higher**. Each Laravel
+release's own PHP requirement also applies; Laravel 13 requires PHP 8.3+.
 
 ```bash
 composer require alifcoder/query-filter
+php artisan query-filter:make ProductFilter
 ```
 
-Publish the config (optional, but required if you want to override any default):
+Laravel discovers the service provider and its model-filter generator automatically.
 
-```bash
-php artisan vendor:publish --tag=query-filter
-```
+## Define the public fields
 
-To remove the published config/lang files later:
-
-```bash
-php artisan query-filter:uninstall
-```
-
----
-
-## ⚙️ Configuration
-
-Everything that used to be hardcoded inside the base filter classes now lives in
-`config/query-filter.php`, so you never need to touch the package internals to
-adapt it to your schema.
+Create one concrete filter for each model, such as `ProductFilter`. Both base
+classes are abstract; public fields belong in the model filter's `fields()` method.
 
 ```php
-return [
-
-    // Validation rules for the built-in query string parameters
-    // (sort, limit, search, pagination, soft-delete toggles, ...).
-    'default_filters' => [ /* ... */ ],
-
-    // Logical field name => actual database column name, used by
-    // BaseEBFilter's prefix(), index(), isActive(), deletedAt(), createdAt(),
-    // updatedAt(), createdBy(), updatedBy() and by the default search/sort
-    // fields below. Override a value if your table uses a different column
-    // name — no need to override the base class.
-    'columns' => [
-        'prefix'        => 'prefix',
-        'index'         => 'index',
-        'is_active'     => 'is_active',
-        'deleted_at'    => 'deleted_at',
-        'created_at'    => 'created_at',
-        'updated_at'    => 'updated_at',
-        'created_by_id' => 'created_by_id',
-        'updated_by_id' => 'updated_by_id',
-        // ...
-    ],
-
-    // Field keys automatically registered as searchable/sortable for every
-    // filter, on top of whatever searchFields()/sortFields() return.
-    'default_search_fields' => ['prefix-index', 'prefix', 'index', /* ... */],
-    'default_sort_fields'   => ['prefix-index', 'index', 'prefix', /* ... */],
-
-    // Relations resolved by checkJoin() and used to build the
-    // "created_by.name" / "updated_by.name" default fields above.
-    'default_joins' => [
-        'created_by' => [
-            'table'        => 'users as created_by',
-            'first'        => 'created_by.id',
-            'second'       => '{table}.created_by_id',
-            'alias'        => 'created_by',
-            'name_columns' => ['first_name', 'last_name'],
-        ],
-        // ...
-    ],
-
-    // Extra ValidationRuleDTO definitions merged into every FormRequest that
-    // uses FilterPrepareForRequestTrait::getFields().
-    'default_validation_fields' => [
-        ['field' => 'prefix', 'rules' => ['string'], 'operations' => ['eq', 'ne']],
-        ['field' => 'index', 'rules' => ['string'], 'operations' => 'all'],
-        // ...
-    ],
-];
-```
-
-Set a `columns` entry, `default_search_fields`/`default_sort_fields` entry, or
-`default_joins` entry to remove it entirely if a default doesn't apply to your
-table — the base class only ever registers what's present in config.
-
----
-
-## 🧱 Usage
-
-### 1. Create a filter
-
-```php
-// app/Filters/PostFilter.php
 namespace App\Filters;
 
 use Alif\QueryFilter\Abstracts\BaseEBFilter;
-use Alif\QueryFilter\Interfaces\Searchable;
-use Illuminate\Database\Eloquent\Builder;
+use Alif\QueryFilter\Enums\FilterOperator;
+use Alif\QueryFilter\Field;
 
-class PostFilter extends BaseEBFilter implements Searchable
+class ProductFilter extends BaseEBFilter
 {
-    protected string $table = 'posts';
+    protected static array $with = ['category']; // Eager load the category with each product result.
 
-    protected function getCallback(): array
+    /** Expose only the product fields that clients may query. */
+    protected function fields(): array
     {
         return [
-            'is_active'     => [$this, 'isActive'],
-            'created_at'    => [$this, 'createdAt'],
-            'created_by_id' => [$this, 'createdBy'],
-            'search'        => [$this, 'search'],
-            'sort'          => [$this, 'sort'],
-            'limit'         => [$this, 'limit'],
+            'id' => Field::make('id')
+                ->operators([FilterOperator::Equal, FilterOperator::In])
+                ->searchable(false),
+            'name' => Field::make('name')
+                ->operators([
+                    FilterOperator::Equal,
+                    FilterOperator::Contains,
+                    FilterOperator::StartsWith,
+                    FilterOperator::IsEmpty,
+                ]),
+            'price' => Field::make('price')
+                ->operators([
+                    FilterOperator::Equal,
+                    FilterOperator::GreaterThanOrEqual,
+                    FilterOperator::LessThanOrEqual,
+                    FilterOperator::Between,
+                ])
+                ->rules(['numeric', 'min:0'])
+                ->searchable(false),
+            'category' => Field::related('category.name')->operators([FilterOperator::Equal]),
+            'tag' => Field::related('tags.name')->operators([FilterOperator::Equal, FilterOperator::In]),
         ];
     }
 
-    protected function sortFields(): array
+    /** Keep product results stable when the request omits sorting. */
+    protected function defaultSort(): array
     {
-        return [
-            'title' => $this->table . '.title',
-        ];
-    }
-
-    protected function joinTables(): array
-    {
-        return [];
-    }
-
-    public function searchFields(string $search): array
-    {
-        return [
-            'title' => $this->table . '.title',
-        ];
+        return ['-id'];
     }
 }
 ```
 
-### 2. Apply it to a model
+`Field::related()` uses `EXISTS`, including for collections. It cannot duplicate
+parent rows and is not sortable. `Field::make('category.name')` instead uses a
+reusable join for a `BelongsTo` or `HasOne` relation and supports related sorting.
+
+## Apply it
 
 ```php
 use Alif\QueryFilter\Traits\Filterable;
+use App\Filters\ProductFilter;
+use Illuminate\Database\Eloquent\Model;
 
-class Post extends Model
+class Product extends Model
 {
     use Filterable;
+
+    protected $filterClass = ProductFilter::class;
 }
+
+// Uses the current HTTP query parameters and the model's filter class.
+$products = Product::filter()->paginate(25);
+
+// Explicit input works in HTTP handlers, jobs, commands, and tests.
+$products = Product::filter(ProductFilter::class, [
+    'filter' => ['price' => ['between' => [10, 100]], 'tag' => 'featured'],
+    'sort' => '-price,id',
+])->get();
 ```
 
-```php
-use App\Filters\PostFilter;
+The trait is optional:
 
-$posts = Post::filter(new PostFilter($request->validated()))->get();
+```php
+$query = Product::query()->where('products.tenant_id', $tenantId);
+(new ProductFilter($request->query()))->apply($query);
+return $query->paginate(25);
 ```
 
-### 3. (Optional) Auto-generate validation rules
+## Default relations
+
+Declare `protected static array $with` in a model filter to eager load relations
+when results are retrieved. Override these defaults for one filter instance:
 
 ```php
-use Alif\QueryFilter\DTO\ValidationRuleDTO;
-use Alif\QueryFilter\Traits\FilterPrepareForRequestTrait;
-use Illuminate\Foundation\Http\FormRequest;
+$filter = new ProductFilter($request->query()); // Use ProductFilter's static defaults initially.
+$filter->setWith(['category.parent', 'brand']); // Replace defaults for this instance only.
+$relations = $filter->getWith(); // Read the configured relation array.
+$products = Product::filter($filter)->paginate(25); // Eloquent loads the requested relations in batches.
+```
 
-class PostIndexRequest extends FormRequest
+`setWith([])` disables only the filter's defaults. Caller and model eager loads
+remain, and their constraints take precedence for matching relation names.
+Laravel's nested relation, selected-column and closure array syntax is supported.
+Keep relation declarations in application code; request input cannot choose
+relations automatically. See [eager loading](docs/api.md#eager-loading).
+
+## Restrict record access
+
+Add trusted access conditions before request filters. On an authenticated route,
+take the branch from the current user, not a query parameter:
+
+```php
+use Illuminate\Database\Eloquent\Builder;
+
+class DocumentFilter extends BaseEBFilter
 {
-    use FilterPrepareForRequestTrait;
-
-    public function fields(): array
+    /** Declare the document fields available to clients. */
+    protected function fields(): array
     {
-        return [
-            new ValidationRuleDTO('title', ['string']),
-        ];
+        return ['title', 'status'];
     }
 }
+
+$branchId = $request->user()->branch_id;
+$filter = (new DocumentFilter($request->query()))->beforeUsing(
+    fn (Builder $query) => $query->where('documents.branch_id', $branchId),
+);
+
+return Document::filter($filter)->paginate(25);
 ```
 
-`rules()` will combine your `fields()` with `config('query-filter.default_validation_fields')`
-and the built-in `default_filters` rules automatically.
+For a rule shared by every use of a filter, override its protected `before()`
+method. Access predicates run even with empty input and remain ANDed with caller
+and request conditions. Hooks accept WHERE predicates only; configure joins and
+ordering on the caller's builder, and eager loading there or through `$with`.
+See the
+[access hook examples](docs/api.md#record-access-before-request-filters).
 
----
+## Query Builder
 
-## 🌐 Example Query
+`BaseQBFilter` uses the same fields, operators, validation and access hooks:
 
-```http
-GET /posts?is_active=1&sort=-created_at&search[title]=hello
+```php
+use Alif\QueryFilter\Abstracts\BaseQBFilter;
+use Illuminate\Support\Facades\DB;
+
+class ProductQueryFilter extends BaseQBFilter
+{
+    /** Map public product fields to the caller's joined SQL columns. */
+    protected function fields(): array
+    {
+        return ['name' => 'products.name', 'brand' => 'brands.name'];
+    }
+}
+
+$query = DB::table('products')
+    ->leftJoin('brands', 'brands.id', '=', 'products.brand_id')
+    ->select('products.*');
+
+$filter = new ProductQueryFilter($request->query());
+$filter->apply($query);
+
+return $query->paginate(25);
 ```
 
----
+Query Builder maps SQL columns explicitly; Eloquent relation discovery belongs
+to `BaseEBFilter`. Both bases share the same parser and query compiler.
 
-## 🧩 Folder Structure
+## Request format
 
-```
-src/
-├── Abstracts/
-│   ├── BaseEBFilter.php      # Eloquent Builder filter base class
-│   └── BaseQBFilter.php      # Query Builder filter base class
-├── Console/
-│   └── UninstallQueryFilterCommand.php
-├── DTO/
-├── Enums/
-├── Interfaces/
-├── Macros/
-├── Traits/
-│   ├── Filterable.php
-│   └── FilterPrepareForRequestTrait.php
-└── QueryFilterServiceProvider.php
-config/
-└── query-filter.php
+```text
+filter[price][gte]=10
+filter[name][starts_with]=Coffee
+filter[tag]=featured
+filter[name][is_empty]=false
+sort=-price,id
 ```
 
----
+Dotted public names go inside brackets: `filter[created_by.name][eq]=Ali`.
+String values are preserved; URLs and timestamps are never split on colons.
 
-## 📜 License
+Use JSON for grouped conditions:
+
+```json
+{
+  "filter": { "price": { "lte": 100 } },
+  "where": {
+    "or": [
+      { "field": "name", "operator": "starts_with", "value": "Coffee" },
+      { "field": "tag", "operator": "eq", "value": "featured" }
+    ]
+  },
+  "sort": "-price,id"
+}
+```
+
+Pass JSON explicitly with `new ProductFilter($request->json()->all())`.
+`filter`, `where`, and search groups are ANDed with existing query constraints.
+Unknown fields, disallowed operators, malformed values, and excessive requests
+raise Laravel `ValidationException` (422 for JSON requests). Authorization
+failures raise `AuthorizationException` (403).
+
+## Capabilities
+
+- Explicit aliases, per-field operators, separate filter/search/sort permissions.
+- Equality, sets, ranges, null/empty checks, literal text matching, and SQL patterns.
+- Nested AND/OR groups, relation scopes, collection filtering, multi-column sort.
+- Typed JSON/JSONB attributes and JSON-backed BelongsTo keys for filter/search/sort.
+- Laravel validation, value transformations, field authorization, custom callbacks.
+- Access hooks that constrain records before request filtering.
+- Per-filter eager-loading defaults with instance-level overrides.
+- Reusable definitions, configurable request limits, no SQL during built-in compilation.
+
+`is_empty=true` matches SQL NULL or an exact empty string; `false` matches values
+that are neither. Zero, false, whitespace, empty JSON arrays and empty JSON objects
+are values. This rebuild removes the old APIs and requires application updates;
+see the [v2.0 upgrade guide](UPGRADING.md).
+
+Read the [API guide](docs/api.md) for all operators, hooks, limits, relation
+semantics, migration steps, and performance guidance.
+See the [examples and recipes](docs/examples.md) for a complete filter and
+copyable examples covering every feature, including advanced composition.
+See [JSON columns and relations](docs/json-columns.md) for a `brand_id` accessor
+backed by `assignments->brand_id`, including PostgreSQL indexes.
+
+## Development
+
+```bash
+composer install
+composer lint
+composer test
+composer benchmark
+```
+
+Tests execute against SQLite, with PostgreSQL JSONB integration tests enabled
+in a dedicated CI job. MySQL/MariaDB coverage checks SQL compilation only. The CI
+matrix covers compatible PHP 8.3–8.5 and Laravel 12–13 combinations. See the
+[PostgreSQL test instructions](docs/json-columns.md#run-postgresql-integration-tests)
+to run those cases locally. Benchmark results are local measurements, not
+database performance guarantees.
+
+Laravel 11 is permitted by the package requirements, but fresh verification is
+currently blocked by dependency security advisories. Future major versions are
+permitted by Composer and require compatibility verification when released.
+
+The lockfile reflects the development runtime. For a different PHP/Laravel
+combination, resolve dependencies with `composer update`, as the CI matrix does.
+
+## License
 
 MIT © [Shukhratjon Yuldashev](https://t.me/alif_coder)

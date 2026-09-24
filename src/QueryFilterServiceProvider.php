@@ -1,46 +1,20 @@
 <?php
-/**
- * Created by Shukhratjon Yuldashev on 2025-05-20
- * Contact: https://t.me/alif_coder
- * Time: 11:39 AM
- */
 
-namespace Alif\QueryFilter;
+namespace Alif\QueryFilter; // Laravel package integration lives at the package root.
 
-use Alif\QueryFilter\Console\UninstallQueryFilterCommand;
-use Alif\QueryFilter\Macros\DeletedMacro;
-use Illuminate\Support\ServiceProvider;
+use Alif\QueryFilter\Console\MakeQueryFilterCommand; // Generate a concrete filter for an application model.
+use Illuminate\Support\ServiceProvider; // Integrate with Laravel package discovery and bootstrapping.
 
+/** Register the concrete model-filter generator through Laravel package discovery. */
 class QueryFilterServiceProvider extends ServiceProvider
 {
-
-    public function register(): void
-    {
-        // Merge the package config with the application config
-        $this->mergeConfigFrom(
-                __DIR__ . '/../config/query-filter.php',
-                'query-filter'
-        );
-
-        // Register the console commands
-        if ($this->app->runningInConsole()) {
-            $this->commands([
-                                    UninstallQueryFilterCommand::class,
-                            ]);
-        }
-    }
-
+    /** Expose the generator in Artisan without adding work to ordinary HTTP requests. */
     public function boot(): void
     {
-        // register macros
-        DeletedMacro::register();
-
-        // Publish the config file
-        $this->publishes([__DIR__ . '/../resources/lang'          => resource_path('lang/vendor/query-filter'),
-                          __DIR__ . '/../config/query-filter.php' => config_path('query-filter.php')],
-                         'query-filter');
-
-        // register lang
-        $this->loadTranslationsFrom(__DIR__ . '/../resources/lang', 'query-filter');
+        if ($this->app->runningInConsole()) { // Avoid command registration during ordinary HTTP requests.
+            $this->commands([ // Register commands through Laravel's normal console lifecycle.
+                MakeQueryFilterCommand::class, // Create documented model-specific filter classes.
+            ]);
+        }
     }
 }

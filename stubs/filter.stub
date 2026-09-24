@@ -1,0 +1,21 @@
+<?php
+
+namespace {{ namespace }}; // Keep this model's filter in the application's filter namespace.
+
+use Alif\QueryFilter\Abstracts\BaseEBFilter; // Share validated filtering and access hooks.
+use Alif\QueryFilter\Enums\FilterOperator; // Declare permitted operations with enum cases.
+use Alif\QueryFilter\Field; // Configure each public field explicitly.
+
+/** Define the public query fields for this model. */
+class {{ class }} extends BaseEBFilter
+{
+    protected static array $with = []; // Add relations to eager load, such as ['brand', 'category.parent'].
+
+    /** Return the fields that clients may filter, search, or sort. */
+    protected function fields(): array
+    {
+        return [ // Add model-specific fields here; request input cannot expose others.
+            'id' => Field::make('id')->operators([FilterOperator::Equal, FilterOperator::In]), // Permit exact IDs and ID lists.
+        ];
+    }
+}

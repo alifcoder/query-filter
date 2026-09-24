@@ -1,19 +1,29 @@
 {
     "name": "alifcoder/query-filter",
-    "description": "A clean query filter builder for Laravel",
+    "description": "Explicit, validated Eloquent and Query Builder filters for Laravel with relation, search, sort, and JSON field support",
     "type": "library",
     "require": {
+        "illuminate/auth": "^11.0 || ^12.0 || ^13.0",
+        "illuminate/console": "^11.0 || ^12.0 || ^13.0",
+        "illuminate/database": "^11.0 || ^12.0 || ^13.0",
         "illuminate/support": "^11.0 || ^12.0 || ^13.0",
-        "php": ">=8.2"
+        "illuminate/validation": "^11.0 || ^12.0 || ^13.0",
+        "php": ">=8.3"
     },
     "require-dev": {
-        "laravel/framework": "^11.0 || ^12.0 || ^13.0"
+        "laravel/framework": "^11.0 || ^12.0 || ^13.0",
+        "phpunit/phpunit": "^11.5"
     },
     "license": "MIT",
     "autoload": {
         "psr-4": {
             "Alif\\QueryFilter\\": "src/"
         }
+    },
+    "scripts": {
+        "test": "phpunit --bootstrap tests/bootstrap.php tests",
+        "lint": "@php scripts/lint.php",
+        "benchmark": "@php scripts/benchmark.php"
     },
     "extra": {
         "laravel": {

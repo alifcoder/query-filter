@@ -1,0 +1,85 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - php: '8.3'
+            laravel: '^12.0'
+          - php: '8.3'
+            laravel: '^13.0'
+          - php: '8.4'
+            laravel: '^12.0'
+          - php: '8.4'
+            laravel: '^13.0'
+          - php: '8.5'
+            laravel: '^13.0'
+    name: PHP ${{ matrix.php }} / Laravel ${{ matrix.laravel }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, pdo_sqlite, dom, xml
+          coverage: none
+          tools: composer:v2
+      - name: Select Laravel version
+        run: composer require 'laravel/framework:${{ matrix.laravel }}' --dev --no-update --no-interaction
+      - name: Install dependencies
+        run: composer update --prefer-dist --no-interaction --with-all-dependencies
+      - name: Validate package
+        run: composer validate --no-check-lock
+      - name: Check PHP syntax
+        run: composer lint
+      - name: Run tests
+        run: composer test
+
+  postgres:
+    name: PostgreSQL JSONB integration
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: query_filter
+          POSTGRES_USER: query_filter
+          POSTGRES_PASSWORD: query_filter
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U query_filter -d query_filter"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      QUERY_FILTER_PG_HOST: 127.0.0.1
+      QUERY_FILTER_PG_PORT: 5432
+      QUERY_FILTER_PG_DATABASE: query_filter
+      QUERY_FILTER_PG_USER: query_filter
+      QUERY_FILTER_PG_PASSWORD: query_filter
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: mbstring, pdo_sqlite, pdo_pgsql, dom, xml
+          coverage: none
+          tools: composer:v2
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction
+      - name: Run tests with PostgreSQL
+        run: composer test
