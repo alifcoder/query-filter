@@ -7,7 +7,10 @@ Inspired by [Kettasoft Filterable](https://github.com/kettasoft/filterable), wit
 one parser and query compiler, bounded input, and no automatic result caching.
 See the [architecture and reference review](docs/architecture.md).
 
-**v2.0.0 is a major release.** Applications using v1.x must follow the
+**Current release: v2.1.0.** It adds search and sort callbacks
+(`searchable()` / `sortable()` accept a closure), a lighter `$withShort`
+eager-load set for `short=1` lists, and single-validator operand checks; it is
+backward compatible with v2.0.0. Applications using v1.x must follow the
 [upgrade guide](UPGRADING.md) before adopting this API.
 
 ## Install

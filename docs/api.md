@@ -518,7 +518,12 @@ adds predicates again while reusing its existing relation joins.
 
 ## Existing integrations and migration
 
-The next release is **v2.0.0**, a major update with breaking changes from v1.1.6.
+**v2.1.0** is backward compatible with v2.0.0: `searchable()` and `sortable()`
+accept a closure, `BaseEBFilter` adds `$withShort`, `relations()` and `isShort()`,
+`BaseFilter` adds `parameter()`, and operand rules run through one validator per
+operation. Update with `composer require 'alifcoder/query-filter:^2.1'`.
+
+**v2.0.0** is a major update with breaking changes from v1.1.6.
 It requires PHP 8.3 or higher and Laravel 11 or higher. There is no compatibility
 layer for the previous callback API.
 

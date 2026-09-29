@@ -1,3 +1,19 @@
+# Upgrade from v2.0.0 to v2.1.0
+
+v2.1.0 is backward compatible; no code changes are required. Update the
+dependency with `composer require 'alifcoder/query-filter:^2.1'`, then adopt the
+new features where useful:
+
+- `searchable(Closure)` / `sortable(Closure)`: search or sort a field with
+  application SQL, e.g. a full name or a computed value. Custom and related
+  (EXISTS) fields become searchable or sortable through these callbacks.
+- `BaseEBFilter::$withShort`, `relations(bool $short)` and `isShort()`: a lighter
+  eager-load set for `short=1` lists. A non-boolean `short` is now a
+  `ValidationException`.
+- `BaseFilter::parameter()`: read a top-level request parameter.
+- Field rules validate all operands of an operation with one validator; a rule
+  message that repeats across operands is reported once.
+
 # Upgrade from v1.1.6 to v2.0.0
 
 Version 2 is a **major release with breaking changes**. The callback-based API
