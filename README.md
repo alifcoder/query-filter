@@ -7,7 +7,10 @@ Inspired by [Kettasoft Filterable](https://github.com/kettasoft/filterable), wit
 one parser and query compiler, bounded input, and no automatic result caching.
 See the [architecture and reference review](docs/architecture.md).
 
-**v2.0.0 is a major release.** Applications using v1.x must follow the
+**Current release: v2.1.0.** It lets `Field::custom()` fields be
+searched and sorted through their own callback, a lighter `$withShort`
+eager-load set for `short=1` lists, and single-validator operand checks; it is
+backward compatible with v2.0.0. Applications using v1.x must follow the
 [upgrade guide](UPGRADING.md) before adopting this API.
 
 ## Install
@@ -231,8 +234,9 @@ failures raise `AuthorizationException` (403).
 - Nested AND/OR groups, relation scopes, collection filtering, multi-column sort.
 - Typed JSON/JSONB attributes and JSON-backed BelongsTo keys for filter/search/sort.
 - Laravel validation, value transformations, field authorization, custom callbacks.
+- Custom search and sort callbacks for full names, computed values and subqueries.
 - Access hooks that constrain records before request filtering.
-- Per-filter eager-loading defaults with instance-level overrides.
+- Per-filter eager-loading defaults, a lighter `short=1` set, and instance-level overrides.
 - Reusable definitions, configurable request limits, no SQL during built-in compilation.
 
 `is_empty=true` matches SQL NULL or an exact empty string; `false` matches values

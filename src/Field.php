@@ -41,7 +41,8 @@ final class Field
     }
 
     /**
-     * Define an isolated application predicate with equality enabled by default.
+     * Define an isolated application predicate with equality enabled by default. After searchable()
+     * or sortable() the same callback also receives ($query, $term, 'search') or ($query, $direction, 'sort').
      * @param Closure(\Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder, mixed, string): mixed $callback
      */
     public static function custom(Closure $callback): self

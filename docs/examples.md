@@ -499,7 +499,7 @@ Custom fields are useful for domain concepts that are not one SQL column:
 ```
 
 The callback receives `(builder, value, operator)`, keeps scalar/list shape,
-and its return value is ignored. Custom fields are not searchable or sortable.
+and its return value is ignored. Custom fields are searchable or sortable only after `searchable()` / `sortable()`; the callback then also receives `'search'` or `'sort'`.
 Use bound values and WHERE methods (`where`, `whereHas`, `whereExists`, and
 related methods); attempts to change joins, ordering, selection, eager loads,
 or scopes are rejected.

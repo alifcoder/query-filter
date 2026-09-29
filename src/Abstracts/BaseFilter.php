@@ -41,6 +41,12 @@ abstract class BaseFilter
         return $filter; // The caller must retain this constrained instance.
     }
 
+     /** Read one top-level request parameter, e.g. for eager-loading or access decisions. */
+    protected function parameter(string $key, mixed $default = null): mixed
+    {
+        return array_key_exists($key, $this->parameters) ? $this->parameters[$key] : $default; // Keep an explicit null distinct from an absent key.
+    }
+
     /**
      * Declare the fields explicitly for the model or SQL query this filter serves.
      *
