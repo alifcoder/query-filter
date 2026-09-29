@@ -39,7 +39,7 @@ final class FilterParser
                 throw new InvalidArgumentException('Related fields require a relation path and cannot be sorted.'); // Reject ambiguous related-field definitions.
             }
             if ($field->callback !== null && (($field->canSearch && $field->searchCallback === null) || ($field->canSort && $field->sortCallback === null))) { // Custom fields have no column, so search and sort need their own callbacks.
-                throw new InvalidArgumentException('Custom fields need searchUsing() or sortUsing() to be searched or sorted.'); // Prevent later compilation without a column target.
+                throw new InvalidArgumentException('Custom fields are searched or sorted only through searchable() or sortable() callbacks.'); // Prevent later compilation without a column target.
             }
             foreach ($field->allowedOperators ?? [] as $operator) { // PHP definitions declare operator permissions with enum cases only.
                 if (! $operator instanceof FilterOperator) { // Definition errors must not change which operations clients can request.

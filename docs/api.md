@@ -145,8 +145,8 @@ pagination. The application may call `reorder()` before applying the filter.
 
 ### Custom search and sort
 
-Use `searchUsing()` when a term must match more than one column, and
-`sortUsing()` when ordering needs an expression or subquery. Both callbacks are
+Pass a closure to `searchable()` when a term must match more than one column, and
+to `sortable()` when ordering needs an expression or subquery. Both callbacks are
 trusted application code and receive the root builder:
 
 ```php
@@ -154,19 +154,19 @@ use Illuminate\Database\Eloquent\Builder;
 
 'name' => Field::make('first_name')
     // Search "Ali Valiyev" across both name columns; bind the term.
-    ->searchUsing(fn (Builder $query, string $term) => $query->whereRaw(
+    ->searchable(fn (Builder $query, string $term) => $query->whereRaw(
         "concat_ws(' ', first_name, last_name) ilike ?", ['%' . $term . '%'],
     ))
     // Order by surname, then first name; $direction is always "asc" or "desc".
-    ->sortUsing(fn (Builder $query, string $direction) => $query
+    ->sortable(fn (Builder $query, string $direction) => $query
         ->orderBy('last_name', $direction)->orderBy('first_name', $direction)),
 
 'bonus_ratio' => Field::custom(fn (Builder $query, mixed $value) => $query->whereRaw('bonus / rate >= ?', [$value]))
     ->rules(['numeric'])
-    ->sortUsing(fn (Builder $query, string $direction) => $query->orderByRaw("bonus / rate $direction")),
+    ->sortable(fn (Builder $query, string $direction) => $query->orderByRaw("bonus / rate $direction")),
 
 'latest_note' => Field::related('notes.created_at')
-    ->sortUsing(fn (Builder $query, string $direction) => $query->orderBy(
+    ->sortable(fn (Builder $query, string $direction) => $query->orderBy(
         Note::select('created_at')->whereColumn('notes.product_id', 'products.id')->latest()->limit(1),
         $direction,
     )),
@@ -497,8 +497,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 A callback receives `(Builder $query, mixed $value, string $operator)` and defaults
 to the `eq` operator. Scalar input stays scalar; list input stays a list.
-Custom fields are searchable or sortable only through `searchUsing()` and
-`sortUsing()`. Use `operators()` to opt into other operators. Each callback is isolated in a WHERE group; internal ORs cannot escape
+Custom fields are searchable or sortable only through `searchable()` and
+`sortable()` callbacks. Use `operators()` to opt into other operators. Each callback is isolated in a WHERE group; internal ORs cannot escape
 caller constraints. Use bound values, including in any custom raw expressions.
 
 Callbacks must add predicates using `where`, `whereHas`, `whereExists`, and

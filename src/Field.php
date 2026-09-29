@@ -78,48 +78,40 @@ final class Field
         return $field; // Return the specialized permission policy.
     }
 
-    /** Enable or disable search terms independently from filtering and sorting. */
-    public function searchable(bool $allowed = true): self
+    /**
+     * Enable or disable search terms independently from filtering and sorting, or search with an
+     * application predicate instead of the field's column, e.g. a full name across two columns.
+     * @param bool|Closure(\Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder, string): mixed $allowed A closure receives the trimmed term.
+     */
+    public function searchable(bool|Closure $allowed = true): self
     {
         $field = clone $this; // Leave any shared definition unchanged.
-        $field->canSearch = $allowed; // Apply only the search permission.
+        $field->canSearch = $allowed !== false; // A search predicate opts the field into search.
+        $field->searchCallback = match (true) { // Keep a declared predicate unless search is disabled.
+            $allowed instanceof Closure => $allowed, // Invoke trusted application code for each nonempty search term.
+            $allowed => $field->searchCallback, // Re-enabling search keeps an earlier predicate.
+            default => null, // Disabling search drops the predicate too.
+        };
 
-        return $field; // Return the specialized permission policy.
-    }
-
-    /** Enable or disable client sorting independently from filtering and search. */
-    public function sortable(bool $allowed = true): self
-    {
-        $field = clone $this; // Leave any shared definition unchanged.
-        $field->canSort = $allowed; // Apply only the sorting permission.
-
-        return $field; // Return the specialized permission policy.
+        return $field; // Return the specialized search policy.
     }
 
     /**
-     * Search with an application predicate instead of matching the field's column, e.g. a full name.
-     * @param Closure(\Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder, string): mixed $callback Receives the trimmed term.
+     * Enable or disable client sorting independently from filtering and search, or order with
+     * application SQL instead of the field's column, e.g. a computed expression or subquery.
+     * @param bool|Closure(\Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder, string): mixed $allowed A closure receives "asc" or "desc".
      */
-    public function searchUsing(Closure $callback): self
+    public function sortable(bool|Closure $allowed = true): self
     {
         $field = clone $this; // Leave any shared definition unchanged.
-        $field->searchCallback = $callback; // Invoke trusted application code for each nonempty search term.
-        $field->canSearch = true; // Declaring a search predicate opts the field into search.
+        $field->canSort = $allowed !== false; // An ordering opts the field into sorting.
+        $field->sortCallback = match (true) { // Keep a declared ordering unless sorting is disabled.
+            $allowed instanceof Closure => $allowed, // Invoke trusted application code at this field's sort position.
+            $allowed => $field->sortCallback, // Re-enabling sorting keeps an earlier ordering.
+            default => null, // Disabling sorting drops the ordering too.
+        };
 
-        return $field; // Return the definition with its own search policy.
-    }
-
-    /**
-     * Sort with application ordering instead of the field's column, e.g. a computed expression.
-     * @param Closure(\Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder, string): mixed $callback Receives "asc" or "desc".
-     */
-    public function sortUsing(Closure $callback): self
-    {
-        $field = clone $this; // Leave any shared definition unchanged.
-        $field->sortCallback = $callback; // Invoke trusted application code at this field's sort position.
-        $field->canSort = true; // Declaring an ordering opts the field into sorting.
-
-        return $field; // Return the definition with its own sort policy.
+        return $field; // Return the specialized sort policy.
     }
 
     /** Laravel rules applied to each operand except is_null/is_empty flags after transformation. */

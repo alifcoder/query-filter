@@ -75,7 +75,7 @@ class ProductFilter extends BaseEBFilter
 ```
 
 `Field::related()` uses `EXISTS`, including for collections. It cannot duplicate
-parent rows and is sortable only through `sortUsing()`. `Field::make('category.name')` instead uses a
+parent rows and is sortable only through a `sortable()` callback. `Field::make('category.name')` instead uses a
 reusable join for a `BelongsTo` or `HasOne` relation and supports related sorting.
 
 ## Apply it
