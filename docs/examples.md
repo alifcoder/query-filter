@@ -60,7 +60,7 @@ final class ProductFilter extends BaseEBFilter
             'brand_name' => Field::make('brand.name')
                 ->operators([FilterOperator::Equal, FilterOperator::Contains]),
 
-            // A collection is compiled as EXISTS and cannot be sorted.
+            // A collection is compiled as EXISTS; sort it only through sortUsing().
             'tag' => Field::related('tags.name')
                 ->operators([FilterOperator::Equal, FilterOperator::In]),
 
@@ -499,7 +499,7 @@ Custom fields are useful for domain concepts that are not one SQL column:
 ```
 
 The callback receives `(builder, value, operator)`, keeps scalar/list shape,
-and its return value is ignored. Custom fields are not searchable or sortable.
+and its return value is ignored. Custom fields are searchable or sortable only through `searchUsing()` and `sortUsing()`.
 Use bound values and WHERE methods (`where`, `whereHas`, `whereExists`, and
 related methods); attempts to change joins, ordering, selection, eager loads,
 or scopes are rejected.

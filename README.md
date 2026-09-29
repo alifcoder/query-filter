@@ -75,7 +75,7 @@ class ProductFilter extends BaseEBFilter
 ```
 
 `Field::related()` uses `EXISTS`, including for collections. It cannot duplicate
-parent rows and is not sortable. `Field::make('category.name')` instead uses a
+parent rows and is sortable only through `sortUsing()`. `Field::make('category.name')` instead uses a
 reusable join for a `BelongsTo` or `HasOne` relation and supports related sorting.
 
 ## Apply it
@@ -231,8 +231,9 @@ failures raise `AuthorizationException` (403).
 - Nested AND/OR groups, relation scopes, collection filtering, multi-column sort.
 - Typed JSON/JSONB attributes and JSON-backed BelongsTo keys for filter/search/sort.
 - Laravel validation, value transformations, field authorization, custom callbacks.
+- Custom search and sort callbacks for full names, computed values and subqueries.
 - Access hooks that constrain records before request filtering.
-- Per-filter eager-loading defaults with instance-level overrides.
+- Per-filter eager-loading defaults, a lighter `short=1` set, and instance-level overrides.
 - Reusable definitions, configurable request limits, no SQL during built-in compilation.
 
 `is_empty=true` matches SQL NULL or an exact empty string; `false` matches values

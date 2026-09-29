@@ -35,11 +35,11 @@ final class FilterParser
             if ($field->callback === null) { // Custom fields have no SQL path to validate.
                 $this->assertPath($field->path); // Validate every declared physical or relation-backed path.
             }
-            if ($field->usesExists && (! str_contains($field->path, '.') || $field->canSort)) { // EXISTS fields need a related attribute and cannot define one scalar sort value.
+            if ($field->usesExists && (! str_contains($field->path, '.') || ($field->canSort && $field->sortCallback === null))) { // EXISTS fields need a related attribute and an explicit ordering to be sortable.
                 throw new InvalidArgumentException('Related fields require a relation path and cannot be sorted.'); // Reject ambiguous related-field definitions.
             }
-            if ($field->callback !== null && ($field->canSearch || $field->canSort)) { // Custom callbacks define predicates rather than searchable or sortable columns.
-                throw new InvalidArgumentException('Custom fields support filtering only.'); // Prevent later compilation without a column target.
+            if ($field->callback !== null && (($field->canSearch && $field->searchCallback === null) || ($field->canSort && $field->sortCallback === null))) { // Custom fields have no column, so search and sort need their own callbacks.
+                throw new InvalidArgumentException('Custom fields need searchUsing() or sortUsing() to be searched or sorted.'); // Prevent later compilation without a column target.
             }
             foreach ($field->allowedOperators ?? [] as $operator) { // PHP definitions declare operator permissions with enum cases only.
                 if (! $operator instanceof FilterOperator) { // Definition errors must not change which operations clients can request.
@@ -174,22 +174,12 @@ final class FilterParser
         $wasList = is_array($value); // Preserve scalar custom-callback input after equality normalizes to a list.
         $value = $operator->normalize($value, $parameter, $this->limits); // Validate shape, scalar types, and per-operation limits first.
         if (! in_array($operator, [FilterOperator::IsNull, FilterOperator::IsEmpty], true)) { // Boolean flags do not use the field's scalar transformation or rules.
-            if ($field->normalizer !== null || $field->validationRules !== []) { // Skip closure creation and array traversal for ordinary fields.
-                $transform = function (mixed $item) use ($field, $parameter): mixed { // Apply developer configuration to each operand independently.
-                    $item = $field->normalizer === null ? $item : ($field->normalizer)($item); // Transform before checking field-specific validation rules.
-                    if ($field->validationRules !== []) { // Invoke Laravel validation only when the field declared rules.
-                        $validator = Validator::make(['value' => $item], ['value' => $field->validationRules]); // Validate this operand under a stable internal attribute.
-                        if ($validator->fails()) { // Convert rule failures into the public request's error location.
-                            throw ValidationException::withMessages([$parameter => $validator->errors()->all()]); // Preserve the rule messages while exposing the public parameter.
-                        }
-                    }
-
-                    return $item; // Return the transformed and validated operand.
-                };
-                $value = is_array($value) ? array_map($transform, $value) : $transform($value); // Preserve list shape while processing every operand.
-                if ($field->normalizer !== null) { // Only transformations can change already-normalized types or sizes.
-                    $value = $operator->normalize($value, $parameter, $this->limits); // Reject transformed nested values, unsupported types, and oversized terms.
-                }
+            if ($field->normalizer !== null) { // Transform every operand before checking field-specific validation rules.
+                $value = is_array($value) ? array_map($field->normalizer, $value) : ($field->normalizer)($value); // Preserve list shape while processing every operand.
+                $value = $operator->normalize($value, $parameter, $this->limits); // Reject transformed nested values, unsupported types, and oversized terms.
+            }
+            if ($field->validationRules !== []) { // Invoke Laravel validation only when the field declared rules.
+                $this->validateOperands($field, is_array($value) ? $value : [$value], $parameter); // Validate the whole operand list with one validator.
             }
             $this->countBindings(is_array($value) ? count($value) : 1, $parameter); // Charge the request for the normalized operand count.
         }
@@ -202,6 +192,21 @@ final class FilterParser
         }
 
         return [$operator, $value]; // Pair the canonical enum with its safe operand for compilation.
+    }
+
+    /** Apply a field's Laravel rules to every operand through one validator instead of one per operand. */
+    private function validateOperands(Field $field, array $operands, string $parameter): void
+    {
+        $operands = array_values($operands); // Index operands by position so each one owns a validator attribute.
+        $validator = Validator::make( // Rule parsing and validator construction happen once per operation.
+            $operands, // Validate each operand as its own top-level attribute.
+            array_fill(0, count($operands), $field->validationRules), // Apply the same field rules to every position.
+            [], // Keep Laravel's default rule messages.
+            array_fill(0, count($operands), 'value'), // Name every operand "value" so messages match single-operand validation.
+        );
+        if ($validator->fails()) { // Convert rule failures into the public request's error location.
+            throw ValidationException::withMessages([$parameter => array_values(array_unique($validator->errors()->all()))]); // Report each distinct rule message once at the public parameter.
+        }
     }
 
     /** Resolve a public field, enforce its requested capability, and authorize it once. */
