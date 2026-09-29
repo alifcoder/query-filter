@@ -7,8 +7,8 @@ Inspired by [Kettasoft Filterable](https://github.com/kettasoft/filterable), wit
 one parser and query compiler, bounded input, and no automatic result caching.
 See the [architecture and reference review](docs/architecture.md).
 
-**Current release: v2.1.0.** It adds search and sort callbacks
-(`searchable()` / `sortable()` accept a closure), a lighter `$withShort`
+**Current release: v2.1.0.** It lets `Field::custom()` fields be
+searched and sorted through their own callback, a lighter `$withShort`
 eager-load set for `short=1` lists, and single-validator operand checks; it is
 backward compatible with v2.0.0. Applications using v1.x must follow the
 [upgrade guide](UPGRADING.md) before adopting this API.
@@ -78,7 +78,7 @@ class ProductFilter extends BaseEBFilter
 ```
 
 `Field::related()` uses `EXISTS`, including for collections. It cannot duplicate
-parent rows and is sortable only through a `sortable()` callback. `Field::make('category.name')` instead uses a
+parent rows and is not sortable. `Field::make('category.name')` instead uses a
 reusable join for a `BelongsTo` or `HasOne` relation and supports related sorting.
 
 ## Apply it

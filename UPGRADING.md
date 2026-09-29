@@ -4,9 +4,9 @@ v2.1.0 is backward compatible; no code changes are required. Update the
 dependency with `composer require 'alifcoder/query-filter:^2.1'`, then adopt the
 new features where useful:
 
-- `searchable(Closure)` / `sortable(Closure)`: search or sort a field with
-  application SQL, e.g. a full name or a computed value. Custom and related
-  (EXISTS) fields become searchable or sortable through these callbacks.
+- `Field::custom(...)->searchable()` / `->sortable()`: the custom callback also
+  receives `($query, $term, 'search')` and `($query, $direction, 'sort')`, e.g. to
+  search a full name or order by a computed value.
 - `BaseEBFilter::$withShort`, `relations(bool $short)` and `isShort()`: a lighter
   eager-load set for `short=1` lists. A non-boolean `short` is now a
   `ValidationException`.

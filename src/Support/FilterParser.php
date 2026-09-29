@@ -35,11 +35,8 @@ final class FilterParser
             if ($field->callback === null) { // Custom fields have no SQL path to validate.
                 $this->assertPath($field->path); // Validate every declared physical or relation-backed path.
             }
-            if ($field->usesExists && (! str_contains($field->path, '.') || ($field->canSort && $field->sortCallback === null))) { // EXISTS fields need a related attribute and an explicit ordering to be sortable.
+            if ($field->usesExists && (! str_contains($field->path, '.') || $field->canSort)) { // EXISTS fields need a related attribute and cannot define one scalar sort value.
                 throw new InvalidArgumentException('Related fields require a relation path and cannot be sorted.'); // Reject ambiguous related-field definitions.
-            }
-            if ($field->callback !== null && (($field->canSearch && $field->searchCallback === null) || ($field->canSort && $field->sortCallback === null))) { // Custom fields have no column, so search and sort need their own callbacks.
-                throw new InvalidArgumentException('Custom fields are searched or sorted only through searchable() or sortable() callbacks.'); // Prevent later compilation without a column target.
             }
             foreach ($field->allowedOperators ?? [] as $operator) { // PHP definitions declare operator permissions with enum cases only.
                 if (! $operator instanceof FilterOperator) { // Definition errors must not change which operations clients can request.

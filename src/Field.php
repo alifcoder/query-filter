@@ -18,8 +18,6 @@ final class Field
     public ?Closure $normalizer = null; // Normalize operands before applying their validation rules.
     public ?Closure $authorization = null; // Check access only when this public field is requested.
     public ?Closure $callback = null; // Optional application predicate replaces built-in column comparisons.
-    public ?Closure $searchCallback = null; // Optional application search predicate replaces the built-in pattern match.
-    public ?Closure $sortCallback = null; // Optional application ordering replaces the built-in column sort.
 
     /** Store the application-owned SQL or relation path without resolving a query. */
     private function __construct(public readonly string $path)
@@ -43,7 +41,8 @@ final class Field
     }
 
     /**
-     * Define an isolated application predicate with equality enabled by default.
+     * Define an isolated application predicate with equality enabled by default. After searchable()
+     * or sortable() the same callback also receives ($query, $term, 'search') or ($query, $direction, 'sort').
      * @param Closure(\Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder, mixed, string): mixed $callback
      */
     public static function custom(Closure $callback): self
@@ -78,40 +77,22 @@ final class Field
         return $field; // Return the specialized permission policy.
     }
 
-    /**
-     * Enable or disable search terms independently from filtering and sorting, or search with an
-     * application predicate instead of the field's column, e.g. a full name across two columns.
-     * @param bool|Closure(\Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder, string): mixed $allowed A closure receives the trimmed term.
-     */
-    public function searchable(bool|Closure $allowed = true): self
+    /** Enable or disable search terms independently from filtering and sorting. */
+    public function searchable(bool $allowed = true): self
     {
         $field = clone $this; // Leave any shared definition unchanged.
-        $field->canSearch = $allowed !== false; // A search predicate opts the field into search.
-        $field->searchCallback = match (true) { // Keep a declared predicate unless search is disabled.
-            $allowed instanceof Closure => $allowed, // Invoke trusted application code for each nonempty search term.
-            $allowed => $field->searchCallback, // Re-enabling search keeps an earlier predicate.
-            default => null, // Disabling search drops the predicate too.
-        };
+        $field->canSearch = $allowed; // Apply only the search permission.
 
-        return $field; // Return the specialized search policy.
+        return $field; // Return the specialized permission policy.
     }
 
-    /**
-     * Enable or disable client sorting independently from filtering and search, or order with
-     * application SQL instead of the field's column, e.g. a computed expression or subquery.
-     * @param bool|Closure(\Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder, string): mixed $allowed A closure receives "asc" or "desc".
-     */
-    public function sortable(bool|Closure $allowed = true): self
+    /** Enable or disable client sorting independently from filtering and search. */
+    public function sortable(bool $allowed = true): self
     {
         $field = clone $this; // Leave any shared definition unchanged.
-        $field->canSort = $allowed !== false; // An ordering opts the field into sorting.
-        $field->sortCallback = match (true) { // Keep a declared ordering unless sorting is disabled.
-            $allowed instanceof Closure => $allowed, // Invoke trusted application code at this field's sort position.
-            $allowed => $field->sortCallback, // Re-enabling sorting keeps an earlier ordering.
-            default => null, // Disabling sorting drops the ordering too.
-        };
+        $field->canSort = $allowed; // Apply only the sorting permission.
 
-        return $field; // Return the specialized sort policy.
+        return $field; // Return the specialized permission policy.
     }
 
     /** Laravel rules applied to each operand except is_null/is_empty flags after transformation. */

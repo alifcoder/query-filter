@@ -145,41 +145,38 @@ pagination. The application may call `reorder()` before applying the filter.
 
 ### Custom search and sort
 
-Pass a closure to `searchable()` when a term must match more than one column, and
-to `sortable()` when ordering needs an expression or subquery. Both callbacks are
-trusted application code and receive the root builder:
+A `Field::custom()` callback can also search and sort the field. Enable them
+with `searchable()` / `sortable()`; the same callback then receives the purpose
+as its third argument: `'search'` with the trimmed term, or `'sort'` with the
+validated direction (`'asc'` or `'desc'`):
 
 ```php
+use Alif\QueryFilter\Abstracts\BaseFilter;
 use Illuminate\Database\Eloquent\Builder;
 
-'name' => Field::make('first_name')
+'bonus_ratio' => Field::custom(fn (Builder $query, mixed $value, string $operator) => match ($operator) {
+    BaseFilter::SORT => $query->orderByRaw("bonus / rate $value"), // $value is 'asc' or 'desc'.
+    default => $query->whereRaw('bonus / rate >= ?', [$value]),   // 'eq' filter.
+})->rules(['numeric'])->sortable(),
+
+'author' => Field::custom(fn (Builder $query, mixed $value, string $operator) => match ($operator) {
     // Search "Ali Valiyev" across both name columns; bind the term.
-    ->searchable(fn (Builder $query, string $term) => $query->whereRaw(
-        "concat_ws(' ', first_name, last_name) ilike ?", ['%' . $term . '%'],
-    ))
-    // Order by surname, then first name; $direction is always "asc" or "desc".
-    ->sortable(fn (Builder $query, string $direction) => $query
-        ->orderBy('last_name', $direction)->orderBy('first_name', $direction)),
-
-'bonus_ratio' => Field::custom(fn (Builder $query, mixed $value) => $query->whereRaw('bonus / rate >= ?', [$value]))
-    ->rules(['numeric'])
-    ->sortable(fn (Builder $query, string $direction) => $query->orderByRaw("bonus / rate $direction")),
-
-'latest_note' => Field::related('notes.created_at')
-    ->sortable(fn (Builder $query, string $direction) => $query->orderBy(
-        Note::select('created_at')->whereColumn('notes.product_id', 'products.id')->latest()->limit(1),
-        $direction,
+    BaseFilter::SEARCH => $query->whereHas('author', fn (Builder $author) => $author->whereRaw(
+        "concat_ws(' ', first_name, last_name) ilike ?", ['%' . $value . '%'],
     )),
+    BaseFilter::SORT => $query->orderBy(
+        Author::select('first_name')->whereColumn('authors.id', 'products.author_id'),
+        $value,
+    ),
+    default => $query->where('products.author_id', $value),
+})->searchable()->sortable(),
 ```
 
-The search callback gets the trimmed, nonempty term without wildcards and is
-combined with other searched fields using `search_type`. Like custom filter
-predicates, it runs in its own WHERE group and may change WHERE predicates only.
-The sort callback runs at the field's position in `sort` and may add ORDER BY
-clauses, or joins it needs; only interpolate the validated `$direction`, never
-request input. Neither callback resolves the field's own column, so a
-`Field::custom()` or `Field::related()` field becomes searchable or sortable
-only through these callbacks.
+A search is combined with other searched fields using `search_type`; like a
+filter predicate it runs in its own WHERE group and may change WHERE predicates
+only. A sort runs at the field's position in `sort` and may add ORDER BY
+clauses; only interpolate the validated direction, never request input. Use
+`filterable(false)` for a field that should only be searched or sorted.
 
 `limit` bounds a subsequent `get()`. It is not a pagination page size, and an
 absent limit does not cap result count. Validate and cap `per_page` separately
@@ -497,8 +494,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 A callback receives `(Builder $query, mixed $value, string $operator)` and defaults
 to the `eq` operator. Scalar input stays scalar; list input stays a list.
-Custom fields are searchable or sortable only through `searchable()` and
-`sortable()` callbacks. Use `operators()` to opt into other operators. Each callback is isolated in a WHERE group; internal ORs cannot escape
+Custom fields are not searchable or sortable unless `searchable()` / `sortable()`
+enable it; the callback then also receives `'search'` or `'sort'` as its operator. Use `operators()` to opt into other operators. Each callback is isolated in a WHERE group; internal ORs cannot escape
 caller constraints. Use bound values, including in any custom raw expressions.
 
 Callbacks must add predicates using `where`, `whereHas`, `whereExists`, and
@@ -518,8 +515,8 @@ adds predicates again while reusing its existing relation joins.
 
 ## Existing integrations and migration
 
-**v2.1.0** is backward compatible with v2.0.0: `searchable()` and `sortable()`
-accept a closure, `BaseEBFilter` adds `$withShort`, `relations()` and `isShort()`,
+**v2.1.0** is backward compatible with v2.0.0: `Field::custom()` fields can be
+searched and sorted through their own callback, `BaseEBFilter` adds `$withShort`, `relations()` and `isShort()`,
 `BaseFilter` adds `parameter()`, and operand rules run through one validator per
 operation. Update with `composer require 'alifcoder/query-filter:^2.1'`.
 

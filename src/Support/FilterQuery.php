@@ -2,6 +2,7 @@
 
 namespace Alif\QueryFilter\Support; // Internal compilation of validated filter plans.
 
+use Alif\QueryFilter\Abstracts\BaseFilter; // Names the search and sort purposes passed to custom callbacks.
 use Alif\QueryFilter\Enums\FilterOperator; // Applies normalized operators using bound values.
 use Alif\QueryFilter\Field; // Supplies developer-owned field capabilities and callbacks.
 use Illuminate\Contracts\Database\Query\Expression; // Represents typed JSON column expressions.
@@ -33,8 +34,8 @@ final class FilterQuery
     {
         $names = array_merge( // Collect every field whose SQL target is needed; callbacks supply their own SQL.
             $this->conditionFields($plan['conditions']), // Filter leaves, including those inside boolean groups.
-            array_keys(array_filter($plan['searches'], fn (string $term, string $name) => $this->fields[$name]->searchCallback === null, ARRAY_FILTER_USE_BOTH)), // Built-in searches match a column.
-            array_keys(array_filter($plan['sorts'], fn (string $direction, string $name) => $this->fields[$name]->sortCallback === null, ARRAY_FILTER_USE_BOTH)), // Built-in sorts order by a column.
+            array_keys($plan['searches']), // Searched fields, including custom ones skipped below.
+            array_keys($plan['sorts']), // Sorted fields, including custom ones skipped below.
         );
         $resolver = $builder instanceof Builder ? new RelationJoinResolver($builder) : null; // Plain queries use explicit SQL column mappings instead.
         foreach (array_unique($names) as $name) { // Resolve repeated fields once for this plan.
@@ -59,9 +60,9 @@ final class FilterQuery
         if ($plan['searches'] !== []) { // Empty searches must not add a query group.
             $builder->where(function (Builder|QueryBuilder $query) use ($plan) { // Keep search ORs inside an AND boundary protecting caller constraints.
                 foreach ($plan['searches'] as $name => $value) { // Apply each normalized search term to its approved field.
-                    $search = $this->fields[$name]->searchCallback; // Application predicates replace the built-in pattern match.
-                    if ($search !== null) { // Isolate the callback's ORs and reject non-WHERE changes.
-                        QueryConstraints::add($query, fn (Builder|QueryBuilder $nested) => $search($nested, $value), $plan['searchType']); // Combine it like any other searched field.
+                    $custom = $this->fields[$name]->callback; // A custom field searches through its own predicate.
+                    if ($custom !== null) { // Isolate the callback's ORs and reject non-WHERE changes.
+                        QueryConstraints::add($query, fn (Builder|QueryBuilder $nested) => $custom($nested, $value, BaseFilter::SEARCH), $plan['searchType']); // Combine it like any other searched field.
 
                         continue; // The callback fully represents this field's search.
                     }
@@ -75,9 +76,9 @@ final class FilterQuery
         }
 
         foreach ($plan['sorts'] as $name => $direction) { // Preserve the client's declared sort priority.
-            $sort = $this->fields[$name]->sortCallback; // Application ordering replaces the built-in column sort.
-            if ($sort !== null) { // Trusted code adds its ORDER BY at this position with a validated direction.
-                $sort($builder, $direction); // The callback may order by an expression, subquery or joined column.
+            $custom = $this->fields[$name]->callback; // A custom field orders through its own callback.
+            if ($custom !== null) { // Trusted code adds its ORDER BY at this position with a validated direction.
+                $custom($builder, $direction, BaseFilter::SORT); // The callback may order by an expression, subquery or joined column.
             } else { // Ordinary fields order by their resolved column.
                 $builder->orderBy($this->columns[$name], $direction); // Column and direction were both validated before compilation.
             }
