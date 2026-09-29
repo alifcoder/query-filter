@@ -29,8 +29,8 @@ final class QueryConstraints
         $query->addNestedWhereQuery($nested); // AND the grouped caller expression with later restrictions.
     }
 
-    /** Apply one callback in an AND group and reject every non-predicate query mutation. */
-    public static function add(Builder|QueryBuilder $builder, Closure $callback): void
+    /** Apply one callback in its own group and reject every non-predicate query mutation. */
+    public static function add(Builder|QueryBuilder $builder, Closure $callback, string $boolean = 'and'): void
     {
         $base = $builder instanceof Builder ? $builder->getQuery() : $builder; // Capture the actual caller FROM context.
         /** Collect only this callback's predicates before Laravel attaches the group. */
@@ -42,7 +42,7 @@ final class QueryConstraints
             if ($before !== self::withoutPredicates($nested)) { // Compare protected scope and callback state too.
                 throw new LogicException('Filter callbacks may change WHERE predicates only. Configure scopes, eager loads, joins and other clauses on the caller query.'); // Prevent silently discarded or unsafe changes.
             }
-        });
+        }, null, null, $boolean); // Attach the group with AND, or OR for alternative search predicates.
     }
 
     /** Snapshot non-predicate query state, including protected Eloquent scope and callback properties. */

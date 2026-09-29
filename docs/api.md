@@ -143,6 +143,44 @@ are preserved. `defaultSort()` supplies ordering only when no `sort` parameter w
 `sort: []` suppresses the default. Include a unique final column for stable
 pagination. The application may call `reorder()` before applying the filter.
 
+### Custom search and sort
+
+Use `searchUsing()` when a term must match more than one column, and
+`sortUsing()` when ordering needs an expression or subquery. Both callbacks are
+trusted application code and receive the root builder:
+
+```php
+use Illuminate\Database\Eloquent\Builder;
+
+'name' => Field::make('first_name')
+    // Search "Ali Valiyev" across both name columns; bind the term.
+    ->searchUsing(fn (Builder $query, string $term) => $query->whereRaw(
+        "concat_ws(' ', first_name, last_name) ilike ?", ['%' . $term . '%'],
+    ))
+    // Order by surname, then first name; $direction is always "asc" or "desc".
+    ->sortUsing(fn (Builder $query, string $direction) => $query
+        ->orderBy('last_name', $direction)->orderBy('first_name', $direction)),
+
+'bonus_ratio' => Field::custom(fn (Builder $query, mixed $value) => $query->whereRaw('bonus / rate >= ?', [$value]))
+    ->rules(['numeric'])
+    ->sortUsing(fn (Builder $query, string $direction) => $query->orderByRaw("bonus / rate $direction")),
+
+'latest_note' => Field::related('notes.created_at')
+    ->sortUsing(fn (Builder $query, string $direction) => $query->orderBy(
+        Note::select('created_at')->whereColumn('notes.product_id', 'products.id')->latest()->limit(1),
+        $direction,
+    )),
+```
+
+The search callback gets the trimmed, nonempty term without wildcards and is
+combined with other searched fields using `search_type`. Like custom filter
+predicates, it runs in its own WHERE group and may change WHERE predicates only.
+The sort callback runs at the field's position in `sort` and may add ORDER BY
+clauses, or joins it needs; only interpolate the validated `$direction`, never
+request input. Neither callback resolves the field's own column, so a
+`Field::custom()` or `Field::related()` field becomes searchable or sortable
+only through these callbacks.
+
 `limit` bounds a subsequent `get()`. It is not a pagination page size, and an
 absent limit does not cap result count. Validate and cap `per_page` separately
 when passing it to Eloquent. Filtering does not execute or cache results.
@@ -201,10 +239,35 @@ $products = Product::filter($filter)->get(); // Eloquent retrieves the products 
 
 `setWith(array $relations): static` changes the current instance and returns it
 for chaining. `getWith(): array` returns that instance's override or the class's
-static default array, without normalizing the declaration. Neither method changes
+static default array (`$withShort` for `short=1`), without normalizing the declaration. Neither method changes
 static state. New filter instances retain their defaults, including in queue
 workers and long-running application servers. `beforeUsing()` clones retain
 their own copy of the override.
+
+### Short lists
+
+Compact list responses often need fewer relations. Declare them in
+`$withShort`, using the same syntax; the request selects them with `short=1`:
+
+```php
+class ProductFilter extends BaseEBFilter
+{
+    protected static array $with = ['brand', 'category.parent', 'createdBy']; // Full resource.
+    protected static ?array $withShort = ['brand:id,name']; // `short=1` list.
+}
+
+Product::filter(new ProductFilter(['short' => 1]))->get(); // Loads brand:id,name only.
+ProductFilter::relations(); // ['brand', 'category.parent', 'createdBy']
+ProductFilter::relations(short: true); // ['brand:id,name']
+```
+
+`short` accepts `true`, `1`, `"1"`, `"true"` and `false`, `0`, `"0"`, `"false"`,
+`null` or `""`; other values raise a `ValidationException` on `short` before the
+query changes. `$withShort = null` (the default) loads `$with` for short lists
+too, and `[]` loads nothing. `isShort()` tells the caller which resource to
+return. `setWith()` still wins over both declarations. Use the static
+`relations()` to load a single record (show, create, update) with the same
+relations its list uses, e.g. `$product->load(ProductFilter::relations())`.
 
 Nested relation names, nested arrays, selected columns and constraint closures
 are supported. Use `setWith()` for closures that need runtime context:
@@ -434,8 +497,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 A callback receives `(Builder $query, mixed $value, string $operator)` and defaults
 to the `eq` operator. Scalar input stays scalar; list input stays a list.
-Custom fields are not searchable or sortable. Use `operators()` to opt into other
-operators. Each callback is isolated in a WHERE group; internal ORs cannot escape
+Custom fields are searchable or sortable only through `searchUsing()` and
+`sortUsing()`. Use `operators()` to opt into other operators. Each callback is isolated in a WHERE group; internal ORs cannot escape
 caller constraints. Use bound values, including in any custom raw expressions.
 
 Callbacks must add predicates using `where`, `whereHas`, `whereExists`, and
