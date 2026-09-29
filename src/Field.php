@@ -18,8 +18,6 @@ final class Field
     public ?Closure $normalizer = null; // Normalize operands before applying their validation rules.
     public ?Closure $authorization = null; // Check access only when this public field is requested.
     public ?Closure $callback = null; // Optional application predicate replaces built-in column comparisons.
-    public ?Closure $searchCallback = null; // Optional application search predicate replaces the built-in pattern match.
-    public ?Closure $sortCallback = null; // Optional application ordering replaces the built-in column sort.
 
     /** Store the application-owned SQL or relation path without resolving a query. */
     private function __construct(public readonly string $path)
@@ -94,32 +92,6 @@ final class Field
         $field->canSort = $allowed; // Apply only the sorting permission.
 
         return $field; // Return the specialized permission policy.
-    }
-
-    /**
-     * Search with an application predicate instead of matching the field's column, e.g. a full name.
-     * @param Closure(\Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder, string): mixed $callback Receives the trimmed term.
-     */
-    public function searchUsing(Closure $callback): self
-    {
-        $field = clone $this; // Leave any shared definition unchanged.
-        $field->searchCallback = $callback; // Invoke trusted application code for each nonempty search term.
-        $field->canSearch = true; // Declaring a search predicate opts the field into search.
-
-        return $field; // Return the definition with its own search policy.
-    }
-
-    /**
-     * Sort with application ordering instead of the field's column, e.g. a computed expression.
-     * @param Closure(\Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder, string): mixed $callback Receives "asc" or "desc".
-     */
-    public function sortUsing(Closure $callback): self
-    {
-        $field = clone $this; // Leave any shared definition unchanged.
-        $field->sortCallback = $callback; // Invoke trusted application code at this field's sort position.
-        $field->canSort = true; // Declaring an ordering opts the field into sorting.
-
-        return $field; // Return the definition with its own sort policy.
     }
 
     /** Laravel rules applied to each operand except is_null/is_empty flags after transformation. */

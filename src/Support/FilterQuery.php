@@ -31,11 +31,7 @@ final class FilterQuery
     /** Resolve requested fields, then append grouped filters, searches, sorting, and limit. */
     public function apply(Builder|QueryBuilder $builder, array $plan): void
     {
-        $names = array_merge( // Collect every field whose SQL target is needed; callbacks supply their own SQL.
-            $this->conditionFields($plan['conditions']), // Filter leaves, including those inside boolean groups.
-            array_keys(array_filter($plan['searches'], fn (string $term, string $name) => $this->fields[$name]->searchCallback === null, ARRAY_FILTER_USE_BOTH)), // Built-in searches match a column.
-            array_keys(array_filter($plan['sorts'], fn (string $direction, string $name) => $this->fields[$name]->sortCallback === null, ARRAY_FILTER_USE_BOTH)), // Built-in sorts order by a column.
-        );
+        $names = array_merge($this->conditionFields($plan['conditions']), array_keys($plan['searches']), array_keys($plan['sorts'])); // Collect every field whose SQL target is needed.
         $resolver = $builder instanceof Builder ? new RelationJoinResolver($builder) : null; // Plain queries use explicit SQL column mappings instead.
         foreach (array_unique($names) as $name) { // Resolve repeated fields once for this plan.
             $field = $this->fields[$name]; // Definitions were already authorized and validated by the parser.
@@ -59,12 +55,6 @@ final class FilterQuery
         if ($plan['searches'] !== []) { // Empty searches must not add a query group.
             $builder->where(function (Builder|QueryBuilder $query) use ($plan) { // Keep search ORs inside an AND boundary protecting caller constraints.
                 foreach ($plan['searches'] as $name => $value) { // Apply each normalized search term to its approved field.
-                    $search = $this->fields[$name]->searchCallback; // Application predicates replace the built-in pattern match.
-                    if ($search !== null) { // Isolate the callback's ORs and reject non-WHERE changes.
-                        QueryConstraints::add($query, fn (Builder|QueryBuilder $nested) => $search($nested, $value), $plan['searchType']); // Combine it like any other searched field.
-
-                        continue; // The callback fully represents this field's search.
-                    }
                     $query->where(function (Builder|QueryBuilder $nested) use ($name, $value) { // Isolate each field, including related EXISTS searches.
                         $this->onField($nested, $name, function (Builder|QueryBuilder $target, string|Expression $column) use ($value) { // Select the field's direct or related query target.
                             FilterOperator::Like->apply($target, $column, '%' . $value . '%'); // Bind the wildcard search term using the driver's pattern operator.
@@ -75,12 +65,7 @@ final class FilterQuery
         }
 
         foreach ($plan['sorts'] as $name => $direction) { // Preserve the client's declared sort priority.
-            $sort = $this->fields[$name]->sortCallback; // Application ordering replaces the built-in column sort.
-            if ($sort !== null) { // Trusted code adds its ORDER BY at this position with a validated direction.
-                $sort($builder, $direction); // The callback may order by an expression, subquery or joined column.
-            } else { // Ordinary fields order by their resolved column.
-                $builder->orderBy($this->columns[$name], $direction); // Column and direction were both validated before compilation.
-            }
+            $builder->orderBy($this->columns[$name], $direction); // Column and direction were both validated before compilation.
         }
         if ($plan['limit'] !== null) { // Leave the caller's limit intact unless one was explicitly requested.
             $builder->limit($plan['limit']); // Apply the positive bounded row limit.
