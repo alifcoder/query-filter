@@ -39,6 +39,11 @@ An absent operator policy permits all built-in operators. PHP `operators()`
 declarations require `FilterOperator` enum cases. HTTP and JSON requests use
 string operator names such as `eq` and `gte`, including the documented aliases.
 
+`Field::type(?FieldType $type)` sets the public `Field::$type` (default `null`) to one of the
+`FieldType` cases (String, Integer, Decimal, Boolean, Date, DateTime, Time, Uuid). It is metadata for
+consumers, such as an export choosing a cell type; filtering, searching, sorting, SQL and validation
+are unchanged by it.
+
 Fluent `Field` methods return clones, so a shared definition can be specialized
 without changing the original. Define reusable fields by overriding
 `protected function fields(): array` in a `BaseEBFilter` subclass. Definitions

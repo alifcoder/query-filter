@@ -10,6 +10,9 @@ new features where useful:
 - `BaseEBFilter::$withShort`, `relations(bool $short)` and `isShort()`: a lighter
   eager-load set for `short=1` lists. A non-boolean `short` is now a
   `ValidationException`.
+- `Field::type(?FieldType)` and `Field::$type` (default `null`), with the `Enums\FieldType` enum:
+  metadata for consumers that need a field's value type. It does not affect filtering,
+  searching or sorting.
 - `BaseFilter::parameter()`: read a top-level request parameter.
 - Field rules validate all operands of an operation with one validator; a rule
   message that repeats across operands is reported once.
