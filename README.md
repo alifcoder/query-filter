@@ -81,6 +81,10 @@ class ProductFilter extends BaseEBFilter
 parent rows and is not sortable. `Field::make('category.name')` instead uses a
 reusable join for a `BelongsTo` or `HasOne` relation and supports related sorting.
 
+`Field::type(FieldType::Date)` declares the value type of a field (`FieldType`: String, Integer,
+Decimal, Boolean, Date, DateTime, Time, Uuid). It only sets the `Field::$type` metadata (default
+`null`) for consumers; it never changes filtering, searching or sorting.
+
 ## Apply it
 
 ```php

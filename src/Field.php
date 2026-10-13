@@ -2,6 +2,7 @@
 
 namespace Alif\QueryFilter; // Public definitions shared by both builder APIs.
 
+use Alif\QueryFilter\Enums\FieldType; // Declare value types without repeating strings.
 use Alif\QueryFilter\Enums\FilterOperator; // Declare operations without repeating request strings.
 use Closure; // Store application-provided validation and predicate callbacks.
 
@@ -18,6 +19,7 @@ final class Field
     public ?Closure $normalizer = null; // Normalize operands before applying their validation rules.
     public ?Closure $authorization = null; // Check access only when this public field is requested.
     public ?Closure $callback = null; // Optional application predicate replaces built-in column comparisons.
+    public ?FieldType $type = null; // Metadata only: the declared value type for consumers; null means undeclared, queries are unaffected.
 
     /** Store the application-owned SQL or relation path without resolving a query. */
     private function __construct(public readonly string $path)
@@ -126,5 +128,14 @@ final class Field
         $field->authorization = $authorization; // Evaluate access during request parsing, not construction.
 
         return $field; // Return the field with its application-owned authorization policy.
+    }
+
+    /** Declare the value type for consumers such as exports; filtering, search and sorting are unchanged. */
+    public function type(?FieldType $type): self
+    {
+        $field = clone $this; // Leave any shared definition unchanged.
+        $field->type = $type; // Record the metadata only.
+
+        return $field; // Return the annotated copy.
     }
 }
